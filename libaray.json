@@ -1,0 +1,15 @@
+{
+    "name": "AltNextion",
+    "keywords": "hmi, display, nextion",
+    "description": "Alternative Nextion display for Arduino (a library that doesn't suck)",
+    "url": "https://github.com/PSIAlt/AltNextion",
+    "repository":
+    {
+      "type": "git",
+      "url": "https://github.com/PSIAlt/AltNextion.git"
+    },
+    "version": "1.0.0",
+    "frameworks": "arduino",
+    "platforms": "*"
+  }
+  
