@@ -46,19 +46,24 @@ bool Display::sendCommand(const char *cmd, int len) {
     return true; //serial.write has "no real error management" lol..
 }
 
-
-bool Display::getComponentValue(const char *name, uint32_t &val) {
-    MessageWatcherNumber w(*this);
-    int l = strlen(name);
-    char buf[4 + l + 4 + 1] = "get ";
-    strcat(buf, name);
-    strcat(buf, ".val");
-    sendCommand(buf);
+bool Display::waitAnswerWithWatcher(MessageWatcher &w) {
     for(int i=0; i<10 && !w.hadMessage(); i++) {
         delay(10);
         listen(90);
     }
-    if( w.hadMessage() ) {
+    return w.hadMessage();
+}
+
+#define GEN_GET_Q(name, l) char buf[sizeof("get ") + l + sizeof(".val") + 10/*zero etc*/] = "get "; \
+    strcat(buf, name); \
+    strcat(buf, ".val");
+
+bool Display::getComponentValue(const char *name, uint32_t &val) {
+    MessageWatcherNumber w(*this);
+    int l = strlen(name);
+    GEN_GET_Q(name, l);
+    sendCommand(buf);
+    if( waitAnswerWithWatcher(w) ) {
         val = w.getValue();
         return true;
     }
@@ -68,37 +73,15 @@ bool Display::getComponentValue(const char *name, uint32_t &val) {
 bool Display::getComponentValue(const char *name, String &val) {
     MessageWatcherString w(*this);
     int l = strlen(name);
-    char buf[4 + l + 4 + 1] = "get ";
-    strcat(buf, name);
-    strcat(buf, ".val");
+    GEN_GET_Q(name, l);
     sendCommand(buf);
-    for(int i=0; i<10 && !w.hadMessage(); i++) {
-        delay(10);
-        listen(90);
-    }
-    if( w.hadMessage() ) {
+    if( waitAnswerWithWatcher(w) ) {
         val = w.getValue();
         return true;
     }
     return false;
 
 }
-
-
-// String getValue = "get "+ component +".val";//Get componetn value
-//     unsigned int value = 0;
-//   sendCommand(getValue.c_str());
-//   uint8_t temp[8] = {0};
-//   // nextion->setTimeout(20);
-//   if (sizeof(temp) != nextion->readBytes((char *)temp, sizeof(temp))){
-//     return -1;
-//   }//end if
-//   if((temp[0]==(0x71))&&(temp[5]==0xFF)&&(temp[6]==0xFF)&&(temp[7]==0xFF)){
-//     value = (temp[4] << 24) | (temp[3] << 16) | (temp[2] << 8) | (temp[1]);//Little-endian convertion
-//   }//end if
-//   return value;
-// }//get_component_value */
-
 
 void Display::dispatchEvent() {
     MessageWatcher *w = watchers_head;
@@ -131,15 +114,19 @@ void Display::rmWatcher(MessageWatcher *w) {
 
 bool MessageWatcher::checkMessage(const Message &msg) {
     if( code == msg.code ) {
-        if( cb )
-            cb(msg);
+        // Prevent callback from running inside handler of the same callback
+        bool flag = hadMessageFlag;
         hadMessageFlag=true;
+        if( cb && !flag ) {
+            cb(msg);
+        }
     }
     return code == msg.code;
 }
 
 MessageWatcherNumber::MessageWatcherNumber(Display &d) : MessageWatcher(d, 0x71) {
 }
+
 bool MessageWatcherNumber::checkMessage(const Message &msg) {
     if( MessageWatcher::checkMessage(msg ) ) {
         val = msg.payload_u32[0];
@@ -149,7 +136,6 @@ bool MessageWatcherNumber::checkMessage(const Message &msg) {
 }
 
 MessageWatcherString::MessageWatcherString(Display &d) : MessageWatcher(d, 0x70) {
-
 }
 
 bool MessageWatcherString::checkMessage(const Message &msg) {

@@ -30,6 +30,7 @@ public:
     bool getComponentValue(const char *name, uint32_t &val);
     bool getComponentValue(const char *name, String &val);
     bool sendCommand(const char *cmd, int len=-1);
+    bool waitAnswerWithWatcher(MessageWatcher &w);
 
     friend class MessageWatcher;
 protected:
@@ -86,7 +87,7 @@ public:
     MessageWatcherString(Display &d);
 
     bool checkMessage(const Message &msg);
-    String getValue() { return val; }
+    const String &getValue() { return val; }
 private:
     String val;
 };
