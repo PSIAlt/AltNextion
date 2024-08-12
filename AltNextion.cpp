@@ -8,25 +8,28 @@ const uint8_t endbyte = 0xff;
 bool Display::listen(long timeout_ms) {
     unsigned long last_ms = millis();
     const int delay_ms = 10;
-    while( serial.available()>0 & timeout_ms>delay_ms ){
+    while( serial.available()>0 && timeout_ms>delay_ms ){
         delay(delay_ms);
         unsigned long m = millis();
         timeout_ms -= (m-last_ms);
         last_ms=m;
         serial.setTimeout( timeout_ms > delay_ms ? timeout_ms : delay_ms );
-        size_t rd = serial.readBytesUntil(endbyte, &rdbuf[rdbuf_len], sizeof(rdbuf)-rdbuf_len);
+        if( rdbuf_len >= sizeof(rdbuf) ) {
+            // Posible overflow..sadly throw out everything...
+            rdbuf_len=1;
+            rdbuf[0]=0;
+        }
+        size_t rd = serial.readBytes(&rdbuf[rdbuf_len], 1);
         for(int i=rdbuf_len; i<(rdbuf_len+rd); i++) {
             if( rdbuf[i] == endbyte )
                 endcount++;
         }
         rdbuf_len += rd;
-        if( rdbuf_len >= sizeof(rdbuf) )
-            rdbuf_len = sizeof(rdbuf)-1;
         if( endcount > 3 )
-            abort(); //omg somethign wrong happend
+            abort(); //omg something wrong happend
         if( endcount == 3 ) {
             msg.len = rdbuf_len - endcount;
-            msg.payload_u8[msg.len-1] = 0;
+            msg.payload_u8[msg.len-1] = 0; //-1 cus command code is outside this buf
 
             dispatchEvent();
             return true;
