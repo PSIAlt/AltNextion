@@ -7,9 +7,9 @@ const uint8_t endbyte = 0xff;
 
 bool Display::listen(long timeout_ms) {
     unsigned long last_ms = millis();
-    const int delay_ms = 10;
+    const int delay_ms = 1;
+    delay(5);
     while( serial.available()>0 && timeout_ms>delay_ms ){
-        delay(delay_ms);
         unsigned long m = millis();
         timeout_ms -= (m-last_ms);
         last_ms=m;
@@ -17,9 +17,9 @@ bool Display::listen(long timeout_ms) {
         if( rdbuf_len >= sizeof(rdbuf) ) {
             // Posible overflow..sadly throw out everything...
             rdbuf_len=1;
-            rdbuf[0]=0;
+            rdbuf[0]=0;// fake command code
         }
-        size_t rd = serial.readBytes(&rdbuf[rdbuf_len], 1);
+        size_t rd = serial.readBytes(&rdbuf[rdbuf_len], 3-endcount);
         for(int i=rdbuf_len; i<(rdbuf_len+rd); i++) {
             if( rdbuf[i] == endbyte )
                 endcount++;
@@ -28,9 +28,11 @@ bool Display::listen(long timeout_ms) {
         if( endcount > 3 )
             abort(); //omg something wrong happend
         if( endcount == 3 ) {
-            msg.len = rdbuf_len - endcount;
-            msg.payload_u8[msg.len-1] = 0; //-1 cus command code is outside this buf
-
+            int ofs = rdbuf_len -endcount -1; //-1 cus command code is outside this buf
+            // assert( ofs < sizeof(msg.payload_u8));
+            msg.payload_u8[ofs] = 0;
+            endcount = 0;
+            rdbuf_len = 0;
             dispatchEvent();
             return true;
         }
@@ -87,13 +89,13 @@ bool Display::getComponentValue(const char *name, String &val) {
 }
 
 void Display::dispatchEvent() {
+    Message msg_copy; // In case when dispatch handler issuing commands
+    memcpy(&msg_copy, &msg, sizeof(msg));
     MessageWatcher *w = watchers_head;
     while( w ) {
-        w->checkMessage(msg);
+        w->checkMessage(msg_copy);
         w = w->watcher_next;
     }
-    endcount = 0;
-    rdbuf_len = 0;
 }
 
 void Display::addWatcher(MessageWatcher *w) {
@@ -131,7 +133,7 @@ MessageWatcherNumber::MessageWatcherNumber(Display &d) : MessageWatcher(d, 0x71)
 }
 
 bool MessageWatcherNumber::checkMessage(const Message &msg) {
-    if( MessageWatcher::checkMessage(msg ) ) {
+    if( MessageWatcher::checkMessage(msg) ) {
         val = msg.payload_u32[0];
         return true;
     }
@@ -142,8 +144,8 @@ MessageWatcherString::MessageWatcherString(Display &d) : MessageWatcher(d, 0x70)
 }
 
 bool MessageWatcherString::checkMessage(const Message &msg) {
-    if( MessageWatcher::checkMessage(msg ) ) {
-        val = String((const char*)msg.payload_u8); //-1 for the code
+    if( MessageWatcher::checkMessage(msg) ) {
+        val = String((const char*)msg.payload_u8);
         return true;
     }
     return false;
@@ -151,7 +153,7 @@ bool MessageWatcherString::checkMessage(const Message &msg) {
 
 bool MessageWatcherSendme::checkMessage(const Message &msg) {
     if( code == msg.code && page_id == msg.payload_u8[0] ) {
-        MessageWatcher::checkMessage(msg );
+        MessageWatcher::checkMessage(msg);
         return true;
     }
     return false;
@@ -159,7 +161,7 @@ bool MessageWatcherSendme::checkMessage(const Message &msg) {
 
 bool MessageWatcherTouchEvent::checkMessage(const Message &msg) {
     if( code == msg.code && page_id == msg.payload_u8[0] && component_id == msg.payload_u8[1] ) {
-        MessageWatcher::checkMessage(msg );
+        MessageWatcher::checkMessage(msg);
         return true;
     }
     return false;

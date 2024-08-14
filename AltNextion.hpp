@@ -9,7 +9,6 @@ namespace AltNextion {
 #define MAX_MESSAGE_WATCHERS 10
 
 struct __attribute__ ((packed)) Message {
-    uint32_t len;
     uint8_t code;
     union {
         uint8_t payload_u8[16];
@@ -66,7 +65,7 @@ private:
     friend class Display;
     Display &d;
     MessageWatcher *watcher_prev = NULL, *watcher_next = NULL;
-    watcherCallbackPtr cb;
+    watcherCallbackPtr cb = NULL;
 protected:
     uint8_t code;
     bool hadMessageFlag = false;
