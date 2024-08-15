@@ -6,14 +6,12 @@ namespace AltNextion {
 const uint8_t endbyte = 0xff;
 
 bool Display::listen(long timeout_ms) {
-    unsigned long last_ms = millis();
+    unsigned long timeout_millis = millis() + timeout_ms;
+    unsigned long m = millis();
     const int delay_ms = 1;
-    delay(5);
-    while( serial.available()>0 && timeout_ms>delay_ms ){
-        unsigned long m = millis();
-        timeout_ms -= (m-last_ms);
-        last_ms=m;
-        serial.setTimeout( timeout_ms > delay_ms ? timeout_ms : delay_ms );
+    int rdbuf_len_begin = rdbuf_len;
+    while( m<timeout_millis ){
+        serial.setTimeout( timeout_millis-m );
         if( rdbuf_len >= sizeof(rdbuf) ) {
             // Posible overflow..sadly throw out everything...
             rdbuf_len=1;
@@ -23,6 +21,8 @@ bool Display::listen(long timeout_ms) {
         for(int i=rdbuf_len; i<(rdbuf_len+rd); i++) {
             if( rdbuf[i] == endbyte )
                 endcount++;
+            else
+                endcount=0;
         }
         rdbuf_len += rd;
         if( endcount > 3 )
@@ -36,8 +36,12 @@ bool Display::listen(long timeout_ms) {
             dispatchEvent();
             return true;
         }
+        m = millis();
     }
-
+    if( rdbuf_len > 0 && rdbuf_len_begin == rdbuf_len  ) {
+        // We've reached a timeout but no full command was read.. throw it out?
+        rdbuf_len = 0;
+    }
     return false;
 }
 
@@ -48,6 +52,7 @@ bool Display::sendCommand(const char *cmd, int len) {
     serial.write(0xFF);
     serial.write(0xFF);
     serial.write(0xFF);
+    serial.flush();
     return true; //serial.write has "no real error management" lol..
 }
 
