@@ -1,6 +1,6 @@
 # AltNextion
 Alternative Nextion display for Arduino (a library that doesn't suck)
-![Nextion Display](./nextion.jpg)
+![Nextion Display](./nextion.png)
 
 # License
 See [LICENSE](./LICENSE)
