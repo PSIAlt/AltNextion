@@ -23,12 +23,8 @@ See [LICENSE](./LICENSE)
 2. Extract the zip file
 3. Move the `AltNextion` folder to your Arduino libraries folder
 
+
+
 ## Example
 
-```cpp
-#include <AltNextion.h>
-
-AltNextion display;
-
-
-```
+See [examples](examples) folder.

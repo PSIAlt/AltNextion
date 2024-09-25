@@ -22,6 +22,8 @@ class MessageWatcher;
 // class that manages Nextion single display connection
 class Display {
 public:
+    // Captain: the constructor
+    //Accepts both HardwareSerial and SoftwareSerial objects
     Display(Stream &stream) : serial(stream) {
     }
 
